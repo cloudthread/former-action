@@ -1,0 +1,51 @@
+name: "CloudThread Former cost optimization check"
+description: "Checks if Terraform configuration has any resources that can be optimized in terms of costs"
+inputs:
+  terraform-path:
+    description: "Terraform configuration path"
+    required: false
+    default: '.'
+  cloudthread-token:
+    description: "The token to authenticate with CloudThread API endpoint"
+    required: true
+  github-token:
+    description: "The token to authenticate with GitHub API endpoint (to create pull requests)"
+    required: true
+  terraform-state-path:
+    description: >
+      Path to Terraform state file, produced by running `terraform show -json` command.
+    required: true
+  former-version:
+    default: "0.1"
+    description: "Version to run"
+  api-root:
+    description: CloudThread API URL
+    required: false
+    default: "https://api.cloudthread.io/"
+  main-branch:
+    description: Default branch of the repository
+    required: false
+    default: "${{ github.event.repository.default_branch }}"
+
+runs:
+  using: "composite"
+  steps:
+    - name: Run the former check
+      id: run-former
+      shell: bash
+      env:
+        GIT_AUTH_TOKEN: ${{ inputs.github-token }}
+        CLOUDTHREAD_TOKEN: ${{ inputs.cloudthread-token }}
+      run: |
+        curl --fail-with-body -L -o former https://cloudthread-release-develop.s3.us-west-2.amazonaws.com/former/${{ inputs.former-version }}/former-${{ inputs.former-version }}
+        chmod +x former        
+        ./former \
+          --patch \
+          --pr \
+          --push \
+          --path=${{ inputs.terraform-path }} \
+          --state=${{ inputs.terraform-state-path }} \
+          --repo-name=${{ github.repository }} \
+          --main-branch=${{ inputs.main-branch }} \
+          --api-root=${{ inputs.api-root }} \
+          -0
